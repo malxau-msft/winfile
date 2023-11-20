@@ -2778,6 +2778,7 @@ SkipMKDir:
       case OPER_MKDIR | FUNC_HARD: 
       case OPER_MKDIR | FUNC_LINK:  
       {
+         DWORD dwTargetFileAttributes;
          // Create symbolic link or junction
          if (WFFindFirst(&DTADest, szDest, ATTR_ALL)) {
             WFFindClose(&DTADest);
@@ -2803,13 +2804,14 @@ SkipMKDir:
          }
          CurIDS = IDS_CREATINGMSG;
          Notify(hdlgProgress, IDS_CREATINGMSG, szDest, szNULL);
+         dwTargetFileAttributes = pDTA->fd.dwFileAttributes & ~(ATTR_DIR | ATTR_VOLUME);
          switch (pCopyInfo->dwFunc) {
          case FUNC_LINK:
-            ret = WFSymbolicLink(szSource, szDest, SYMBOLIC_LINK_FLAG_DIRECTORY);
+            ret = WFSymbolicLink(szSource, szDest, SYMBOLIC_LINK_FLAG_DIRECTORY, dwTargetFileAttributes);
             break;
 
          case FUNC_HARD:
-            ret = WFJunction(szDest, szSource);
+            ret = WFJunction(szDest, szSource, dwTargetFileAttributes);
             break;
          }
 
@@ -2968,7 +2970,7 @@ SkipMKDir:
             break;
 
          case FUNC_LINK:
-            ret = WFSymbolicLink(szSource, szDest, 0);
+            ret = WFSymbolicLink(szSource, szDest, 0, INVALID_FILE_ATTRIBUTES);
             break;
 
          case FUNC_HARD:

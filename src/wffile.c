@@ -171,7 +171,7 @@ DWORD RMDir(
 /////////////////////////////////////////////////////////////////////////////
 
 BOOL WFSetAttr(
-    LPTSTR lpFile,
+    LPCTSTR lpFile,
     DWORD dwAttr)
 {
    BOOL bRet;

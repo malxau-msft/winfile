@@ -649,8 +649,8 @@ DWORD WFMove(LPTSTR pszFrom, LPTSTR pszTo, PBOOL pbErrorOnDest, BOOL bSilent);
 DWORD WFCopyIfSymlink(LPTSTR pszFrom, LPTSTR pszTo, DWORD dwFlags, DWORD dwNotification);
 DWORD DecodeReparsePoint(LPCWSTR szMyFile, LPWSTR szDest, DWORD cwcDest);
 DWORD WFHardLink(LPTSTR pszFrom, LPTSTR pszTo);
-DWORD WFSymbolicLink(LPTSTR pszFrom, LPTSTR pszTo, DWORD dwFlags);
-DWORD WFJunction(LPCWSTR LinkDirectory, LPCWSTR LinkTarget);
+DWORD WFSymbolicLink(LPTSTR pszFrom, LPTSTR pszTo, DWORD dwFlags, DWORD dwTargetFileAttributes);
+DWORD WFJunction(LPCWSTR LinkDirectory, LPCWSTR LinkTarget, DWORD dwTargetFileAttributes);
 
 
 

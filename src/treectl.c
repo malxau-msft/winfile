@@ -355,6 +355,7 @@ InsertDirectory(
    HWND hwndLB;
    INT iMin, iMax, iMid;
    TCHAR szPathName[MAXPATHLEN * 2];
+   BOOLEAN bInsertNode;
 
 
    len = lstrlen(szName);
@@ -509,10 +510,39 @@ InsertDirectory(
        pNode->dwAttribs = dwAttribs;
    }
 
-   BOOL bInsertNode = TRUE;
-   if (pNode->dwAttribs & ATTR_JUNCTION)
-      if (!(GetWindowLongPtr(GetParent(hwndTreeCtl), GWL_ATTRIBS) & ATTR_JUNCTION))
+   //
+   //  Check if this should be filtered based on user preferences.   Users can
+   //  hide junctions or hidden/system directories.  Do not hide the root,
+   //  even if it is marked hidden/system.
+   //
+
+   bInsertNode = TRUE;
+   if (pParentNode != NULL &&
+       pNode->dwAttribs & (ATTR_JUNCTION | ATTR_HS))
+   {
+      DWORD dwDisplayAttributeMask;
+
+      //
+      //  Capture the set of attributes to include in the display.
+      //
+
+      dwDisplayAttributeMask = GetWindowLongPtr(GetParent(hwndTreeCtl), GWL_ATTRIBS);
+
+      //
+      //  Invert it into a mask of attributes to exclude from the display,
+      //  and only consider junction or hidden/system as criteria to exclude.
+      //
+
+      dwDisplayAttributeMask = (~dwDisplayAttributeMask) & (ATTR_JUNCTION | ATTR_HS);
+
+      //
+      //  If any of those attributes are present, don't insert.
+      //
+
+      if (dwDisplayAttributeMask & pNode->dwAttribs) {
          bInsertNode = FALSE;
+      }
+   }
 
    if (bInsertNode)
    {
@@ -527,6 +557,10 @@ InsertDirectory(
    else 
    {
       LocalFree(pNode);
+      if (ppNode)
+      {
+         *ppNode = NULL;
+      }
       return 0;
    }
 }
@@ -802,18 +836,18 @@ ReadDirLevel(
                                bPartialSort,
                                lfndta.fd.dwFileAttributes );
 
-      pParentNode->wFlags |= TF_DISABLED;
+      if (pNode != NULL) {
+         pParentNode->wFlags |= TF_DISABLED;
 
-      /* Construct the path to this new subdirectory. */
-      *szEndPath = CHAR_NULL;           // remove old stuff
-      AddBackslash(szPath);
-      lstrcat(szPath, p);
+         /* Construct the path to this new subdirectory. */
+         *szEndPath = CHAR_NULL;           // remove old stuff
+         AddBackslash(szPath);
+         lstrcat(szPath, p);
 
-
-      // Recurse!
-
-      ReadDirLevel(hwndTreeCtl, pNode, szPath, uLevel+1,
-         iNode, dwAttribs, bFullyExpand, szAutoExpand, bPartialSort);
+         // Recurse!
+         ReadDirLevel(hwndTreeCtl, pNode, szPath, uLevel+1,
+            iNode, dwAttribs, bFullyExpand, szAutoExpand, bPartialSort);
+      }
   }
 
   while (bFound) {
@@ -862,7 +896,7 @@ ReadDirLevel(
                                    bPartialSort,
                                    lfndta.fd.dwFileAttributes );
 
-             if (hwndStatus && ((cNodes % READDIRLEVEL_UPDATE) == 0)) {
+          if (hwndStatus && ((cNodes % READDIRLEVEL_UPDATE) == 0)) {
 
               // make sure we are the active window before we
               // update the status bar
@@ -874,32 +908,35 @@ ReadDirLevel(
               }
           }
 
-          cNodes++;
+          if (pNode != NULL) {
 
-          //
-          // Construct the path to this new subdirectory.
-          //
-          *szEndPath = CHAR_NULL;
-          AddBackslash(szPath);
-          lstrcat(szPath, lfndta.fd.cFileName);         // cFileName is ANSI now
+             cNodes++;
+
+             //
+             // Construct the path to this new subdirectory.
+             //
+             *szEndPath = CHAR_NULL;
+             AddBackslash(szPath);
+             lstrcat(szPath, lfndta.fd.cFileName);         // cFileName is ANSI now
 
 
-          // either recurse or add pluses
+             // either recurse or add pluses
 
-          if (bFullyExpand || bAutoExpand) {
+             if (bFullyExpand || bAutoExpand) {
 
-             // If we are recursing due to bAutoExpand
-             // then pass it.  Else pass NULL instead.
+                // If we are recursing due to bAutoExpand
+                // then pass it.  Else pass NULL instead.
 
-              if (!ReadDirLevel(hwndTreeCtl, pNode, szPath, uLevel+1,
-                 iNode, dwAttribs, bFullyExpand,
-                 bAutoExpand ? szAutoExpand : NULL, bPartialSort)) {
+                 if (!ReadDirLevel(hwndTreeCtl, pNode, szPath, uLevel+1,
+                    iNode, dwAttribs, bFullyExpand,
+                    bAutoExpand ? szAutoExpand : NULL, bPartialSort)) {
 
-                 bResult = FALSE;
-                 goto DONE;
-              }
-          } else if (dwView & VIEW_PLUSES) {
-             ScanDirLevel(pNode, szPath, dwAttribs & (ATTR_HS | ATTR_JUNCTION));
+                    bResult = FALSE;
+                    goto DONE;
+                 }
+             } else if (dwView & VIEW_PLUSES) {
+                ScanDirLevel(pNode, szPath, dwAttribs & (ATTR_HS | ATTR_JUNCTION));
+             }
           }
       }
 
@@ -2489,7 +2526,8 @@ TreeControlWndProc(
          //
          // Add a plus if necessary
          //
-         if (GetWindowLongPtr(hwndParent, GWL_VIEW) & VIEW_PLUSES) {
+         if (pNodeT != NULL &&
+             (GetWindowLongPtr(hwndParent, GWL_VIEW) & VIEW_PLUSES)) {
 
             lstrcpy(szPath, (LPTSTR)lParam);
             ScanDirLevel( (PDNODE)pNodeT,

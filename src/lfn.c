@@ -578,14 +578,19 @@ WFHardLink(LPTSTR pszFrom, LPTSTR pszTo)
  *  Creates a Symbolic Link
  */
 DWORD
-WFSymbolicLink(LPTSTR pszFrom, LPTSTR pszTo, DWORD dwFlags)
+WFSymbolicLink(LPTSTR pszFrom, LPTSTR pszTo, DWORD dwFlags, DWORD dwTargetFileAttributes)
 {
    DWORD dwRet;
 
    Notify(hdlgProgress, IDS_COPYINGMSG, pszFrom, pszTo);
 
    if (CreateSymbolicLink(pszTo, pszFrom, dwFlags | (bDeveloperModeAvailable ? SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE : 0))) {
-      ChangeFileSystem(FSC_CREATE, pszTo, NULL);
+      if ((dwFlags & SYMBOLIC_LINK_FLAG_DIRECTORY) != 0) {
+          WFSetAttr(pszTo, dwTargetFileAttributes);
+          ChangeFileSystem(FSC_MKDIR, pszTo, NULL);
+      } else {
+          ChangeFileSystem(FSC_CREATE, pszTo, NULL);
+      }
       dwRet = ERROR_SUCCESS;
    } else {
       dwRet = GetLastError();
@@ -634,7 +639,7 @@ BOOL IsVeryLongPath(LPCWSTR pszPathName)
  * Creates a NTFS Junction
  * Returns either ERROR_SUCCESS or GetLastError()
  */
-DWORD WFJunction(LPCWSTR pszLinkDirectory, LPCWSTR pszLinkTarget)
+DWORD WFJunction(LPCWSTR pszLinkDirectory, LPCWSTR pszLinkTarget, DWORD dwTargetFileAttributes)
 {
    DWORD        dwRet = ERROR_SUCCESS;
    // Size assumption: We have to copy 2 path with each MAXPATHLEN long onto the structure. So we take 3 times MAXPATHLEN
@@ -737,6 +742,7 @@ DWORD WFJunction(LPCWSTR pszLinkDirectory, LPCWSTR pszLinkTarget)
    }
 
    CloseHandle(hFile);
+   WFSetAttr(pszLinkDirectory, dwTargetFileAttributes);
    ChangeFileSystem(FSC_MKDIR, pszLinkDirectory, NULL);
    return ERROR_SUCCESS;
 }
